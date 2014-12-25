@@ -17,6 +17,7 @@
 
 package com.etsy.android.grid;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.database.DataSetObserver;
 import android.graphics.Rect;
@@ -33,7 +34,6 @@ import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.ListAdapter;
 import android.widget.Scroller;
-
 import java.util.ArrayList;
 
 /**
@@ -142,7 +142,9 @@ public abstract class ExtendableListView extends AbsListView {
     
     private Runnable mPendingCheckForTap;
     private CheckForLongPress mPendingCheckForLongPress;
-
+    
+    private boolean mCallingSuperSaveInstanceState = false;
+    
     private class CheckForLongPress extends WindowRunnnable implements Runnable {
         public void run() {
             final int motionPosition = mMotionPosition;
@@ -1555,7 +1557,9 @@ public abstract class ExtendableListView extends AbsListView {
                 mMotionPosition == position;
         final boolean updateChildPressed = isPressed != child.isPressed();
         final boolean needToMeasure = !recycled || updateChildSelected || child.isLayoutRequested();
-
+        if (DBG) {
+        	Log.v("top", String.format("%d needToMeasure %s", position, String.valueOf(needToMeasure)));
+        }
         int itemViewType = mAdapter.getItemViewType(position);
 
         LayoutParams layoutParams;
@@ -2146,7 +2150,8 @@ public abstract class ExtendableListView extends AbsListView {
      * we have an empty view, display it.  In all the other cases, make sure that the listview
      * is VISIBLE and that the empty view is GONE (if it's not null).
      */
-    private void updateEmptyStatus() {
+    @SuppressLint("WrongCall")
+	private void updateEmptyStatus() {
         boolean empty = getAdapter() == null || getAdapter().isEmpty();
         if (isInFilterMode()) {
             empty = false;
@@ -2787,11 +2792,28 @@ public abstract class ExtendableListView extends AbsListView {
         };
     }
 
+    @Override
+    public long getSelectedItemId()
+    {
+        // this is a hack to prevent the superclass (AbsListView) onSaveInstanceState from trying
+        // to reference its private mAdapter member, which is always null as this subclass manages
+        // its own private mAdapter.  It will skip the call to mAdapter if an item is selected, so
+        // fake that here.
+        if (mCallingSuperSaveInstanceState) {
+            return 1;
+        }
+        else {
+            // Selection is not supported here yet, so just call superclass
+            return super.getSelectedItemId();
+        }
+    }
 
     @Override
     public Parcelable onSaveInstanceState() {
 
+    	mCallingSuperSaveInstanceState = true;
         Parcelable superState = super.onSaveInstanceState();
+        mCallingSuperSaveInstanceState = false;
         ListSavedState ss = new ListSavedState(superState);
 
         if (mSyncState != null) {
