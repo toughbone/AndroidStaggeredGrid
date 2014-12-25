@@ -444,6 +444,11 @@ public abstract class ExtendableListView extends AbsListView {
         // relying on being able to add a footer and then calling setAdapter to
         // force creation of the HeaderViewListAdapter wrapper
 
+    	for (int i = 0; i < mFooterViewInfos.size(); ++i) {
+    		if (mFooterViewInfos.get(i).view == v) {
+    			return;
+    		}
+    	}
         FixedViewInfo info = new FixedViewInfo();
         info.view = v;
         info.data = data;
